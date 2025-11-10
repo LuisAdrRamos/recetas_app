@@ -14,7 +14,6 @@ import { Usuario } from "../../models/Usuario";
  * Este UseCase es el "cerebro" de la autenticación.
  * Los componentes no hablan directamente con Supabase, sino con este UseCase.
  */
-
 export class AuthUseCase {
     /**
      * Registrar nuevo usuario
@@ -27,6 +26,7 @@ export class AuthUseCase {
     async registrar(email: string, password: string, rol: "chef" | "usuario") {
         try {
             // PASO 1: Crear usuario en Supabase Auth
+            // Esto disparará el trigger en SQL que crea la fila en 'usuarios' con rol 'usuario'
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
@@ -36,22 +36,15 @@ export class AuthUseCase {
             if (authError) throw authError;
             if (!authData.user) throw new Error("No se pudo crear el usuario");
 
-            // PASO 2: Guardar información adicional en tabla usuarios
-            // Usamos upsert (insert + update) para manejar casos donde el usuario ya existe
-            const { error: upsertError } = await supabase
+            // PASO 2: CORREGIDO - Actualizar el rol del usuario
+            // El trigger ya creó la fila con rol 'usuario'.
+            // Ahora actualizamos esa fila con el rol que el usuario seleccionó en la app.
+            const { error: updateError } = await supabase
                 .from("usuarios")
-                .upsert(
-                    {
-                        id: authData.user.id,    // Mismo ID que en Auth
-                        email: authData.user.email,
-                        rol: rol,                 // Chef o usuario
-                    },
-                    {
-                        onConflict: "id",         // Si el ID ya existe, actualiza
-                    }
-                );
+                .update({ rol: rol }) // Solo actualiza el campo 'rol'
+                .eq("id", authData.user.id); // Donde el ID coincida
 
-            if (upsertError) throw upsertError;
+            if (updateError) throw updateError; // Lanzará error si el RLS de UPDATE falla
 
             return { success: true, user: authData.user };
         } catch (error: any) {
@@ -112,7 +105,7 @@ export class AuthUseCase {
                 .from("usuarios")
                 .select("*")
                 .eq("id", user.id)
-                .single();  // Esperamos un solo resultado
+                .single(); // Esperamos un solo resultado
 
             if (error) throw error;
             return data as Usuario;
