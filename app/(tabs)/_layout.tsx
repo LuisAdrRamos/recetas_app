@@ -1,12 +1,16 @@
 import { Tabs, useRouter } from "expo-router";
 import React from "react";
 import { Text } from "react-native";
-// Importamos los colores de tu propio theme del taller [cite: 90]
+import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../src/styles/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { green } from "react-native-reanimated/lib/typescript/Colors";
 
 export default function TabLayout() {
     // 1. Importamos el router para poder navegar
     const router = useRouter();
+
+    const insets = useSafeAreaInsets();
 
     return (
         <Tabs
@@ -14,7 +18,9 @@ export default function TabLayout() {
                 tabBarActiveTintColor: colors.primary, // Usamos tu color primario [cite: 90]
                 headerShown: false,
                 tabBarStyle: {
-                    paddingTop: 8, // Un poco de espacio
+                    height: 65 + insets.bottom,
+                    paddingBottom: insets.bottom,
+                    paddingTop: 8,
                 },
             }}
         >
@@ -22,8 +28,12 @@ export default function TabLayout() {
                 name="index" // Esto enlaza con app/(tabs)/index.tsx
                 options={{
                     title: "Home",
-                    tabBarIcon: ({ color }) => (
-                        <Text style={{ color: color, fontSize: 28 }}>🏠</Text>
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons
+                            name={focused ? "home" : "home-outline"}
+                            size={28}
+                            color={color}
+                        />
                     ),
                 }}
             />
@@ -35,8 +45,12 @@ export default function TabLayout() {
                 name="explore"
                 options={{
                     title: "Nueva Receta",
-                    tabBarIcon: ({ color }) => (
-                        <Text style={{ color: color, fontSize: 28 }}>🍳</Text>
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons
+                            name={focused ? "add-circle" : "add-circle-outline"}
+                            size={28}
+                            color={"#4caf50"}
+                        />
                     ),
                 }}
                 // 2. Añadimos un "listener" que intercepta el clic

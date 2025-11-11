@@ -1,27 +1,32 @@
 import * as ImagePicker from "expo-image-picker";
+// Importamos la versión "legacy" para 'readAsStringAsync'
+import * as FileSystem from "expo-file-system/legacy";
 import { supabase } from "@/src/data/services/supabaseClient";
 import { Receta } from "../../models/Receta";
 
+// --- CONFIGURACIÓN DE CLOUDINARY (CORREGIDA) ---
+// 1. Leemos las variables de entorno con el prefijo EXPO_PUBLIC_
+const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+// 2. Construimos la URL de subida correcta manualmente
+const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+// ---------------------------------
+
 /**
  * RecipesUseCase - Caso de Uso de Recetas
- *
- * Gestiona toda la lógica de negocio de recetas:
- * - Listar recetas
- * - Buscar por ingrediente
- * - Crear, actualizar, eliminar
- * - Subir imágenes
- * - Seleccionar imagen de galería
+ * (El resto de las funciones no cambian)
  */
-
 export class RecipesUseCase {
     /**
      * Obtener todas las recetas ordenadas por más recientes
      */
     async obtenerRecetas(): Promise<Receta[]> {
+        // ... (código sin cambios)
         const { data, error } = await supabase
             .from("recetas")
             .select("*")
-            .order("created_at", { ascending: false }); // Más recientes primero
+            .order("created_at", { ascending: false });
 
         if (error) {
             console.error("Error al obtener recetas:", error);
@@ -33,12 +38,9 @@ export class RecipesUseCase {
 
     /**
      * Buscar recetas que contengan un ingrediente específico
-     *
-     * Usa el operador 'contains' de PostgreSQL para buscar en arrays
-     *
-     * @param ingrediente - Ingrediente a buscar
      */
     async buscarPorIngrediente(ingrediente: string): Promise<Receta[]> {
+        // ... (código sin cambios)
         const { data, error } = await supabase
             .from("recetas")
             .select("*")
@@ -55,14 +57,9 @@ export class RecipesUseCase {
 
     /**
      * Crear nueva receta
-     *
-     * @param titulo - Título de la receta
-     * @param descripcion - Descripción detallada
-     * @param ingredientes - Array de ingredientes
-     * @param chefId - ID del chef que la crea
-     * @param imagenUri - URI local de la imagen (opcional)
      */
     async crearReceta(
+        // ... (código sin cambios)
         titulo: string,
         descripcion: string,
         ingredientes: string[],
@@ -71,13 +68,9 @@ export class RecipesUseCase {
     ) {
         try {
             let imagenUrl: string | null = null;
-
-            // PASO 1: Subir imagen si existe
             if (imagenUri) {
                 imagenUrl = await this.subirImagen(imagenUri);
             }
-
-            // PASO 2: Insertar receta en base de datos
             const { data, error } = await supabase
                 .from("recetas")
                 .insert({
@@ -89,9 +82,7 @@ export class RecipesUseCase {
                 })
                 .select()
                 .single();
-
             if (error) throw error;
-
             return { success: true, receta: data };
         } catch (error: any) {
             return { success: false, error: error.message };
@@ -99,33 +90,33 @@ export class RecipesUseCase {
     }
 
     /**
-     * Actualizar receta existente
-     *
-     * @param id - ID de la receta
-     * @param titulo - Nuevo título
-     * @param descripcion - Nueva descripción
-     * @param ingredientes - Nuevos ingredientes
+     * (RETO 2) Actualizar receta existente
      */
     async actualizarReceta(
+        // ... (código sin cambios)
         id: string,
         titulo: string,
         descripcion: string,
-        ingredientes: string[]
+        ingredientes: string[],
+        imagenUri?: string
     ) {
         try {
+            let datosActualizados: any = {
+                titulo,
+                descripcion,
+                ingredientes,
+            };
+            if (imagenUri) {
+                const nuevaImagenUrl = await this.subirImagen(imagenUri);
+                datosActualizados.imagen_url = nuevaImagenUrl;
+            }
             const { data, error } = await supabase
                 .from("recetas")
-                .update({
-                    titulo,
-                    descripcion,
-                    ingredientes,
-                })
+                .update(datosActualizados)
                 .eq("id", id)
                 .select()
                 .single();
-
             if (error) throw error;
-
             return { success: true, receta: data };
         } catch (error: any) {
             return { success: false, error: error.message };
@@ -134,101 +125,119 @@ export class RecipesUseCase {
 
     /**
      * Eliminar receta
-     *
-     * @param id - ID de la receta a eliminar
      */
     async eliminarReceta(id: string) {
+        // ... (código sin cambios)
         try {
             const { error } = await supabase.from("recetas").delete().eq("id", id);
-
             if (error) throw error;
-
             return { success: true };
         } catch (error: any) {
             return { success: false, error: error.message };
         }
     }
 
+    //
+    // --- ESTA ES LA FUNCIÓN REEMPLAZADA (VERSIÓN CLOUDINARY) ---
+    //
     /**
-     * Subir imagen al Storage de Supabase
-     *
-     * PROCESO:
-     * 1. Convertir URI local a Blob
-     * 2. Generar nombre único
-     * 3. Subir a bucket "recetas-fotos"
-     * 4. Obtener URL pública
+     * Subir imagen a Cloudinary usando su REST API (unsigned)
      *
      * @param uri - URI local de la imagen
-     * @returns URL pública de la imagen subida
+     * @returns URL pública (secure_url) de la imagen subida
      */
     private async subirImagen(uri: string): Promise<string> {
         try {
-            // PASO 1: Convertir imagen a Blob
-            const response = await fetch(uri);
-            const blob = await response.blob();
+            // 1. Crear el objeto FormData
+            const formData = new FormData();
 
-            // PASO 2: Generar nombre único
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+            // 2. Adjuntar el archivo.
+            // Cloudinary es inteligente y puede manejar la URI local.
+            formData.append("file", {
+                uri: uri,
+                type: "image/jpeg", // El tipo es importante
+                name: uri.split("/").pop(), // Nombre del archivo
+            } as any);
 
-            // PASO 3: Subir a Supabase Storage
-            const { data, error } = await supabase.storage
-                .from("recetas-fotos")
-                .upload(fileName, blob, {
-                    contentType: "image/jpeg",
-                    cacheControl: "3600",  // Cache de 1 hora
-                    upsert: false,         // No sobrescribir si existe
-                });
+            // 3. Adjuntar el preset de subida (leído desde .env)
+            formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET!);
 
-            if (error) throw error;
+            // 4. Realizar la subida con fetch (a la URL construida)
+            const response = await fetch(CLOUDINARY_URL, {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            });
 
-            // PASO 4: Obtener URL pública
-            const {
-                data: { publicUrl },
-            } = supabase.storage.from("recetas-fotos").getPublicUrl(data.path);
+            // 5. Obtener la respuesta
+            const data = await response.json();
 
-            return publicUrl;
-        } catch (error) {
-            console.error("Error al subir imagen:", error);
+            if (response.ok) {
+                // 6. Devolver la URL segura de Cloudinary
+                return data.secure_url;
+            } else {
+                // Si Cloudinary da un error (ej: preset incorrecto)
+                throw new Error(data.error.message || "Error al subir a Cloudinary");
+            }
+        } catch (error: any) {
+            console.error("Error al subir imagen a Cloudinary:", error.message);
             throw error;
         }
     }
 
     /**
      * Seleccionar imagen de la galería
-     *
-     * PROCESO:
-     * 1. Pedir permisos de galería
-     * 2. Abrir selector de imágenes
-     * 3. Permitir edición (recorte)
-     * 4. Retornar URI local
      */
     async seleccionarImagen(): Promise<string | null> {
+        // ... (código sin cambios)
         try {
-            // PASO 1: Pedir permisos
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
+            const { status } =
+                await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== "granted") {
                 alert("Necesitamos permisos para acceder a tus fotos");
                 return null;
             }
-
-            // PASO 2: Abrir galería
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: "images",
-                allowsEditing: true,  // Permitir recortar
-                aspect: [4, 3],       // Proporción 4:3
-                quality: 0.8,         // Calidad 80% (balance tamaño/calidad)
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
             });
-
             if (!result.canceled) {
                 return result.assets[0].uri;
             }
-
             return null;
         } catch (error) {
             console.error("Error al seleccionar imagen:", error);
             return null;
         }
     }
-}
 
+    /**
+     * (RETO 3) Tomar foto con la cámara
+     */
+    async tomarFoto(): Promise<string | null> {
+        // ... (código sin cambios)
+        try {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+                alert("Necesitamos permisos para acceder a la cámara");
+                return null;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
+            });
+            if (!result.canceled) {
+                return result.assets[0].uri;
+            }
+            return null;
+        } catch (error) {
+            console.error("Error al tomar foto:", error);
+            return null;
+        }
+    }
+}

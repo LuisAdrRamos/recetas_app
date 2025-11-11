@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import { borderRadius, colors, fontSize, shadows, spacing } from "./theme";
+import Constants from "expo-constants";
 
 /**
  * Estilos Globales Reutilizables
@@ -11,6 +12,7 @@ export const globalStyles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
+        paddingTop: Constants.statusBarHeight,
     },
 
     containerCentered: {
@@ -19,6 +21,7 @@ export const globalStyles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: colors.background,
         padding: spacing.lg,
+        paddingTop: Constants.statusBarHeight,
     },
 
     contentPadding: {

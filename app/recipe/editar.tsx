@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -10,15 +11,23 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+// 1. IMPORTAR ICONOS
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../src/presentation/hooks/useAuth";
 import { useRecipes } from "../../src/presentation/hooks/useRecipes";
 import { globalStyles } from "../../src/styles/globalStyles";
-import { colors, fontSize, spacing } from "../../src/styles/theme";
+import {
+    borderRadius,
+    colors,
+    fontSize,
+    spacing,
+} from "../../src/styles/theme";
 
 export default function EditarRecetaScreen() {
     const { id } = useLocalSearchParams();
     const { usuario } = useAuth();
-    const { recetas, actualizar } = useRecipes();
+    // 2. OBTENER 'tomarFoto' DEL HOOK (para Reto 3)
+    const { recetas, actualizar, seleccionarImagen, tomarFoto } = useRecipes();
     const router = useRouter();
 
     const receta = recetas.find((r) => r.id === id);
@@ -28,6 +37,7 @@ export default function EditarRecetaScreen() {
     const [ingrediente, setIngrediente] = useState("");
     const [ingredientes, setIngredientes] = useState<string[]>([]);
     const [cargando, setCargando] = useState(false);
+    const [imagenUri, setImagenUri] = useState<string | null>(null);
 
     // Cargar datos de la receta al iniciar
     useEffect(() => {
@@ -74,6 +84,38 @@ export default function EditarRecetaScreen() {
         setIngredientes(ingredientes.filter((_, i) => i !== index));
     };
 
+    // 3. IMPLEMENTAR RETO 3 (Cámara/Galería)
+    const handleSeleccionarImagen = async () => {
+        Alert.alert(
+            "Actualizar Imagen",
+            "¿Desde dónde quieres agregar la nueva imagen?",
+            [
+                {
+                    text: "Galería de Fotos",
+                    onPress: async () => {
+                        const uri = await seleccionarImagen();
+                        if (uri) {
+                            setImagenUri(uri);
+                        }
+                    },
+                },
+                {
+                    text: "Tomar Foto (Cámara)",
+                    onPress: async () => {
+                        const uri = await tomarFoto();
+                        if (uri) {
+                            setImagenUri(uri);
+                        }
+                    },
+                },
+                {
+                    text: "Cancelar",
+                    style: "cancel",
+                },
+            ]
+        );
+    };
+
     const handleGuardar = async () => {
         if (!titulo || !descripcion || ingredientes.length === 0) {
             Alert.alert("Error", "Completa todos los campos");
@@ -85,7 +127,9 @@ export default function EditarRecetaScreen() {
             receta.id,
             titulo,
             descripcion,
-            ingredientes
+            ingredientes,
+            // 4. PASAR LA NUEVA IMAGEN (SI EXISTE)
+            imagenUri || undefined
         );
         setCargando(false);
 
@@ -102,8 +146,17 @@ export default function EditarRecetaScreen() {
         <ScrollView style={globalStyles.container}>
             <View style={globalStyles.contentPadding}>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()}>
-                        <Text style={styles.botonVolver}>← Cancelar</Text>
+                    {/* --- 5. ICONO DE VOLVER --- */}
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        style={styles.botonVolverContainer}
+                    >
+                        <Ionicons
+                            name="arrow-back-outline"
+                            size={fontSize.md}
+                            color={colors.primary}
+                        />
+                        <Text style={styles.botonVolver}>Cancelar</Text>
                     </TouchableOpacity>
                     <Text style={globalStyles.title}>Editar Receta</Text>
                 </View>
@@ -141,24 +194,50 @@ export default function EditarRecetaScreen() {
                         ]}
                         onPress={agregarIngrediente}
                     >
-                        <Text style={styles.textoAgregar}>+</Text>
+                        {/* --- 6. ICONO DE AGREGAR --- */}
+                        <Ionicons name="add" size={fontSize.xl} color={colors.white} />
                     </TouchableOpacity>
                 </View>
 
+                {/* --- 7. UI FIX: Mover lista de ingredientes aquí --- */}
                 <View style={styles.listaIngredientes}>
                     {ingredientes.map((ing, index) => (
                         <View key={index} style={globalStyles.chip}>
                             <Text style={globalStyles.chipText}>{ing}</Text>
                             <TouchableOpacity onPress={() => quitarIngrediente(index)}>
-                                <Text style={styles.textoEliminar}>×</Text>
+                                {/* --- 8. ICONO DE QUITAR (X) --- */}
+                                <Ionicons
+                                    name="close"
+                                    size={fontSize.lg}
+                                    color={colors.primary}
+                                    style={{ marginLeft: 4 }}
+                                />
                             </TouchableOpacity>
                         </View>
                     ))}
                 </View>
 
-                <Text style={styles.notaImagen}>
-                    💡 Nota: La imagen no se puede cambiar por ahora
-                </Text>
+                {/* --- 9. IMPLEMENTAR RETO 2 (Bloque de Imagen) --- */}
+                <Text style={globalStyles.subtitle}>Imagen:</Text>
+                <Image
+                    source={{ uri: imagenUri || receta.imagen_url || undefined }}
+                    style={styles.vistaPrevia}
+                />
+
+                <TouchableOpacity
+                    style={[
+                        globalStyles.button,
+                        globalStyles.buttonSecondary,
+                        styles.botonIcono,
+                    ]}
+                    onPress={handleSeleccionarImagen}
+                >
+                    <Ionicons name="camera-outline" size={18} color={colors.white} />
+                    <Text style={globalStyles.buttonText}>Cambiar Foto</Text>
+                </TouchableOpacity>
+
+                {/* --- 10. ELIMINAR NOTA ANTIGUA --- */}
+                {/* <Text style={styles.notaImagen}>...</Text> */}
 
                 <TouchableOpacity
                     style={[
@@ -184,10 +263,16 @@ const styles = StyleSheet.create({
     header: {
         marginBottom: spacing.lg,
     },
+    // ESTILO PARA EL BOTÓN VOLVER (CONTENEDOR)
+    botonVolverContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        marginBottom: spacing.sm,
+    },
     botonVolver: {
         fontSize: fontSize.md,
         color: colors.primary,
-        marginBottom: spacing.sm,
     },
     textoError: {
         fontSize: fontSize.lg,
@@ -210,30 +295,33 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-    textoAgregar: {
-        color: colors.white,
-        fontSize: fontSize.xl,
-        fontWeight: "bold",
-    },
+    // 'textoAgregar' ya no es necesario
+
     listaIngredientes: {
         flexDirection: "row",
         flexWrap: "wrap",
         gap: spacing.sm,
         marginBottom: spacing.lg,
     },
-    textoEliminar: {
-        color: colors.primary,
-        fontSize: fontSize.lg,
-        fontWeight: "bold",
+    // 'textoEliminar' ya no es necesario
+
+    // 'notaImagen' ya no es necesario
+
+    botonIcono: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
     },
-    notaImagen: {
-        fontSize: fontSize.sm,
-        color: colors.textSecondary,
-        marginBottom: spacing.lg,
-        fontStyle: "italic",
+    vistaPrevia: {
+        width: "100%",
+        height: 200,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.md,
+        backgroundColor: colors.borderLight, // Fondo por si no carga
     },
     botonGuardar: {
         padding: spacing.lg,
+        marginTop: spacing.lg, // Ajustar margen
     },
 });
-

@@ -22,6 +22,8 @@ import {
     spacing,
 } from "../../src/styles/theme";
 
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+
 export default function HomeScreen() {
     const { usuario, cerrarSesion } = useAuth();
     const { recetas, cargando, cargarRecetas, buscar, eliminar } = useRecipes();
@@ -87,9 +89,12 @@ export default function HomeScreen() {
                 <View>
                     <Text style={styles.saludo}>¡Hola!</Text>
                     <Text style={globalStyles.textSecondary}>{usuario.email}</Text>
-                    <Text style={styles.rol}>
-                        {usuario.rol === "chef" ? "👨‍🍳 Chef" : "👤 Usuario"}
-                    </Text>
+                    <View style={styles.rolContainer}>
+                        <Ionicons name="storefront-outline" size={14} color={colors.primary} />
+                        <Text style={styles.rol}>
+                            {usuario.rol === "chef" ? " Chef" : " Usuario"}
+                        </Text>
+                    </View>
                 </View>
                 <TouchableOpacity
                     style={[
@@ -119,7 +124,7 @@ export default function HomeScreen() {
                     ]}
                     onPress={handleBuscar}
                 >
-                    <Text style={styles.iconoBuscar}>🔍</Text>
+                    <Ionicons name="search" size={24} color="white" />
                 </TouchableOpacity>
             </View>
 
@@ -163,10 +168,13 @@ export default function HomeScreen() {
                                 <Text style={globalStyles.textSecondary} numberOfLines={2}>
                                     {item.descripcion}
                                 </Text>
-                                <Text style={styles.ingredientes}>
-                                    🥘 {item.ingredientes.slice(0, 3).join(", ")}
-                                    {item.ingredientes.length > 3 && "..."}
-                                </Text>
+                                <View style={styles.ingredientesContainer}>
+                                    <Ionicons name="fast-food-outline" size={14} color={colors.primary} />
+                                    <Text style={styles.ingredientesTexto}>
+                                        {item.ingredientes.slice(0, 3).join(", ")}
+                                        {item.ingredientes.length > 3 && "..."}
+                                    </Text>
+                                </View>
                             </View>
 
                             {/* Botones de acción para el chef dueño */}
@@ -177,10 +185,14 @@ export default function HomeScreen() {
                                             globalStyles.button,
                                             globalStyles.buttonSecondary,
                                             styles.botonAccion,
+                                            { flexDirection: 'row', gap: 6 } // <-- AÑADE ESTO
                                         ]}
                                         onPress={() => router.push(`/recipe/editar?id=${item.id}`)}
                                     >
-                                        <Text style={globalStyles.buttonText}>✏️ Editar</Text>
+                                        <>
+                                            <MaterialIcons name="edit" size={16} color="white" />
+                                            <Text style={globalStyles.buttonText}> Editar</Text>
+                                        </>
                                     </TouchableOpacity>
 
                                     <TouchableOpacity
@@ -188,10 +200,14 @@ export default function HomeScreen() {
                                             globalStyles.button,
                                             globalStyles.buttonDanger,
                                             styles.botonAccion,
+                                            { flexDirection: 'row', gap: 6 } // <-- AÑADE ESTO
                                         ]}
                                         onPress={() => handleEliminar(item.id)}
                                     >
-                                        <Text style={globalStyles.buttonText}>🗑️ Eliminar</Text>
+                                        <>
+                                            <Ionicons name="trash-outline" size={16} color="white" />
+                                            <Text style={globalStyles.buttonText}> Eliminar</Text>
+                                        </>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -212,7 +228,6 @@ const styles = StyleSheet.create({
     rol: {
         fontSize: fontSize.xs,
         color: colors.primary,
-        marginTop: spacing.xs / 2,
         fontWeight: "500",
     },
     botonCerrar: {
@@ -258,6 +273,17 @@ const styles = StyleSheet.create({
         color: colors.primary,
         marginTop: spacing.xs,
     },
+    ingredientesContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: spacing.xs,
+    },
+    ingredientesTexto: {
+        fontSize: fontSize.xs,
+        color: colors.primary,
+        flexShrink: 1, // Para que el texto no se desborde
+    },
     botonesAccion: {
         flexDirection: "row",
         gap: spacing.sm,
@@ -266,6 +292,12 @@ const styles = StyleSheet.create({
     botonAccion: {
         flex: 1,
         paddingVertical: spacing.sm,
+    },
+    rolContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: spacing.xs / 2,
     },
 });
 
